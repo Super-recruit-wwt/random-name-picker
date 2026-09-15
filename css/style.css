@@ -74,6 +74,20 @@ html, body {
   color: #6e7681;
 }
 
+/* 倒计时：仅滚动状态显示 */
+#countdown {
+  font-size: clamp(28px, 5vh, 56px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  visibility: hidden;
+  min-height: 1.2em;
+}
+#stage[data-state="rolling"] #countdown { visibility: visible; }
+/* 最后 5 秒倒计时变暖色，配合减速节奏 */
+#stage[data-state="rolling"] #countdown.urgent { color: var(--accent-warm); }
+
 /* 揭晓状态 */
 #stage[data-state="reveal"] #name-display {
   color: var(--accent-warm);

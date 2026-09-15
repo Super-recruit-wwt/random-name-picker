@@ -7,8 +7,29 @@
   const nameDisplay = document.getElementById('name-display');
   const hint = document.getElementById('hint');
   const statusLine = document.getElementById('status-line');
+  const countdown = document.getElementById('countdown');
 
   let state = 'IDLE'; // IDLE | ROLLING | REVEAL
+
+  /* ---------- 倒计时显示 ---------- */
+
+  // 剩余 ≥ 60s 显示 mm:ss，否则显示秒（一位小数），最后 5 秒变暖色
+  function renderCountdown(remainingMs) {
+    const sec = remainingMs / 1000;
+    if (sec >= 60) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      countdown.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    } else {
+      countdown.textContent = Math.max(0, sec).toFixed(1);
+    }
+    countdown.classList.toggle('urgent', sec <= 5);
+  }
+
+  function clearCountdown() {
+    countdown.textContent = '';
+    countdown.classList.remove('urgent');
+  }
 
   /* ---------- 音效（Web Audio 合成，无外部文件依赖） ---------- */
   const SoundFX = (() => {
@@ -88,6 +109,7 @@
       NameList.names,
       (display, remaining) => {
         nameDisplay.textContent = display;
+        renderCountdown(remaining);
         // 只在减速阶段播放滴答声，快速滚动期太吵
         if (Roller.intervalFor(remaining) > 150) SoundFX.tick();
       },
@@ -100,6 +122,7 @@
     const { name } = Picker.draw(NameList.names);
     nameDisplay.textContent = name;
     nameDisplay.classList.add('reveal');
+    clearCountdown();
     setState('REVEAL');
     SoundFX.reveal();
   }
@@ -108,6 +131,7 @@
     Roller.stop();
     nameDisplay.classList.remove('reveal');
     nameDisplay.textContent = '准备好了吗';
+    clearCountdown();
     setState('IDLE');
     refreshStatus();
   }
