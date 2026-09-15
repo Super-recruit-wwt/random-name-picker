@@ -281,20 +281,56 @@ html, body {
 }
 
 /* ---------- 备注输入（仅主持人待机状态显示） ---------- */
-#note-input {
+#note-wrap {
   display: none;
-  width: min(420px, 80vw);
-  background: rgba(22, 27, 34, 0.8);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-size: 15px;
-  text-align: center;
-  outline: none;
+  align-items: center;
+  gap: 10px;
+  width: min(460px, 82vw);
+  padding: 4px 8px 4px 18px;
+  background: rgba(88, 166, 255, 0.05);
+  border: 1px solid rgba(88, 166, 255, 0.22);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
 }
-#note-input:focus { border-color: var(--accent); }
-#stage[data-state="idle"] #note-input { display: block; }
+#note-wrap:hover {
+  border-color: rgba(88, 166, 255, 0.45);
+  background: rgba(88, 166, 255, 0.08);
+}
+#note-wrap:focus-within {
+  border-color: var(--accent);
+  background: rgba(88, 166, 255, 0.10);
+  box-shadow: 0 0 0 4px rgba(88, 166, 255, 0.12), 0 10px 32px rgba(0, 0, 0, 0.4);
+}
+.note-icon {
+  font-size: 15px;
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+#note-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--fg);
+  font-size: 15px;
+  font-family: inherit;
+  padding: 11px 12px 11px 0;
+}
+#note-input::placeholder {
+  color: #6e7681;
+  letter-spacing: 0.02em;
+}
+#stage[data-state="idle"] #note-wrap {
+  display: flex;
+  animation: note-fade-in 0.4s ease;
+}
+@keyframes note-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 /* ---------- 历史记录抽屉（复用名单抽屉布局） ---------- */
 #history-drawer {

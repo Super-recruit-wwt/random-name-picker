@@ -13,3 +13,7 @@ desktop.ini
 # 日志与临时文件
 *.log
 *.tmp
+
+# 运行时数据（不入库）
+data/history.csv
+data/.api-token

@@ -1,21 +1,122 @@
 /**
- * history.js — 抽奖历史记录（localStorage 持久化，仅主持人端产生）
+ * history.js — 抽奖历史记录
+ * 存储优先级：服务器 data/history.csv（通过 /api/history 读写） > 本机 localStorage（离线回落）
+ * 写操作需要口令（设置弹窗里配置，存本机 localStorage，随 X-History-Token 头发送）
  * 每条记录：{ id, time(ISO), name, note, mode, seed, pool }
  */
 const History = (() => {
-  const KEY = 'picker-history';
+  const LS_KEY = 'picker-history';
+  const TOKEN_KEY = 'picker-history-token';
+  const API = new URLSearchParams(location.search).get('api') || (location.origin + '/api/history');
 
   let records = [];
+  let serverOk = false;
+  let warned401 = false;
 
-  function load() {
-    try { records = JSON.parse(localStorage.getItem(KEY)) || []; }
-    catch { records = []; }
+  /* ---------- CSV 解析 / 生成 ---------- */
+
+  function parseCsvLine(line) {
+    const fields = [];
+    let cur = '', inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { cur += '"'; i++; }
+          else inQuotes = false;
+        } else cur += ch;
+      } else if (ch === '"') inQuotes = true;
+      else if (ch === ',') { fields.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    fields.push(cur);
+    return fields;
+  }
+
+  function parseCsv(text) {
+    const out = [];
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    for (let i = 0; i < lines.length; i++) {
+      if (i === 0 && lines[i].startsWith('time,')) continue; // 表头
+      const f = parseCsvLine(lines[i]);
+      if (f.length < 2) continue;
+      out.push({
+        id: 'srv' + i + '_' + (f[0] + f[1]).length + f[0].length,
+        time: f[0], name: f[1] || '', note: f[2] || '',
+        mode: f[3] || '', seed: f[4] || '', pool: Number(f[5]) || 0,
+      });
+    }
+    return out;
+  }
+
+  function csvEscape(v) {
+    v = String(v == null ? '' : v);
+    return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+
+  function exportCsv() {
+    const header = 'time,name,note,mode,seed,pool';
+    const lines = records.map(r => {
+      const t = isNaN(new Date(r.time)) ? r.time
+        : new Date(r.time).toLocaleString('zh-CN', { hour12: false });
+      return [t, r.name, r.note, r.mode, r.seed, r.pool].map(csvEscape).join(',');
+    });
+    return header + '\n' + lines.join('\n') + '\n';
+  }
+
+  /* ---------- 存储层 ---------- */
+
+  function token() { return localStorage.getItem(TOKEN_KEY) || ''; }
+  function setToken(t) { localStorage.setItem(TOKEN_KEY, t || ''); }
+
+  function persistLocal() {
+    localStorage.setItem(LS_KEY, JSON.stringify(records));
+  }
+
+  function warnAuth() {
+    if (warned401) return;
+    warned401 = true;
+    alert('历史同步口令未设置或不正确：记录已保存在本机，但不会写入服务器 CSV。\n可在「设置 → 历史同步口令」中填写。');
+  }
+
+  async function apiPost(rec) {
+    try {
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-History-Token': token() },
+        body: JSON.stringify(rec),
+      });
+      if (res.status === 401) warnAuth();
+    } catch { /* 离线时静默，已有本地副本 */ }
+  }
+
+  async function apiPutAll() {
+    try {
+      const res = await fetch(API, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'text/csv;charset=utf-8', 'X-History-Token': token() },
+        body: exportCsv(),
+      });
+      if (res.status === 401) warnAuth();
+    } catch { /* 离线时静默 */ }
+  }
+
+  async function load() {
+    try {
+      const res = await fetch(API, { cache: 'no-store' });
+      if (!res.ok) throw new Error(res.status);
+      records = parseCsv(await res.text());
+      serverOk = true;
+      persistLocal(); // 服务器为准，同时刷新本机缓存
+    } catch {
+      serverOk = false;
+      try { records = JSON.parse(localStorage.getItem(LS_KEY)) || []; }
+      catch { records = []; }
+    }
     return records;
   }
 
-  function save() {
-    localStorage.setItem(KEY, JSON.stringify(records));
-  }
+  /* ---------- 记录操作 ---------- */
 
   /** 新增一条记录，返回该记录 */
   function add({ name, note, mode, seed, pool }) {
@@ -29,37 +130,30 @@ const History = (() => {
       pool: pool || 0,
     };
     records.unshift(rec); // 最新在前
-    save();
+    persistLocal();
+    if (serverOk) apiPost(rec);
     return rec;
   }
 
   function updateNote(id, note) {
     const rec = records.find(r => r.id === id);
-    if (rec) { rec.note = note; save(); }
+    if (rec) {
+      rec.note = note;
+      persistLocal();
+      if (serverOk) apiPutAll();
+    }
   }
 
   function remove(id) {
     records = records.filter(r => r.id !== id);
-    save();
+    persistLocal();
+    if (serverOk) apiPutAll();
   }
 
   function clear() {
     records = [];
-    save();
-  }
-
-  function csvEscape(v) {
-    v = String(v == null ? '' : v);
-    return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
-  }
-
-  function exportCsv() {
-    const header = 'time,name,note,mode,seed,pool';
-    const lines = records.map(r => {
-      const t = new Date(r.time).toLocaleString('zh-CN', { hour12: false });
-      return [t, r.name, r.note, r.mode, r.seed, r.pool].map(csvEscape).join(',');
-    });
-    return header + '\n' + lines.join('\n') + '\n';
+    persistLocal();
+    if (serverOk) apiPutAll();
   }
 
   /* ---------- 抽屉 UI ---------- */
@@ -77,7 +171,8 @@ const History = (() => {
 
       const head = document.createElement('div');
       head.className = 'history-head';
-      const t = new Date(r.time).toLocaleString('zh-CN', { hour12: false });
+      const d = new Date(r.time);
+      const t = isNaN(d) ? String(r.time) : d.toLocaleString('zh-CN', { hour12: false });
       head.innerHTML = '<span class="history-name"></span><span class="history-time"></span>';
       head.querySelector('.history-name').textContent = r.name;
       head.querySelector('.history-time').textContent = t + (r.pool ? ' · ' + r.pool + ' 人池' : '');
@@ -104,8 +199,9 @@ const History = (() => {
   }
 
   return {
-    load, add, updateNote, remove, clear, render, exportCsv,
+    load, add, updateNote, remove, clear, render, exportCsv, setToken, token,
     get records() { return records; },
     get count() { return records.length; },
+    get serverOk() { return serverOk; },
   };
 })();

@@ -1,0 +1,14 @@
+[Unit]
+Description=Name Picker History API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/name-picker
+ExecStart=/usr/bin/node /opt/name-picker/deploy/server/history-api.js
+Restart=always
+RestartSec=3
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target

@@ -228,6 +228,7 @@
     radios.forEach(r => { r.checked = r.value === Timer.mode; });
     durationInput.value = Timer.durationSec;
     if (Timer.targetDate) atInput.value = toLocalInputValue(Timer.targetDate);
+    document.getElementById('history-token').value = History.token();
     settingsModal.classList.remove('hidden');
   }
 
@@ -242,6 +243,7 @@
       ? Timer.configure('duration', durationInput.value)
       : Timer.configure('at', atInput.value);
     if (err) { alert(err); return; }
+    History.setToken(document.getElementById('history-token').value.trim());
     closeSettings();
   }
 
@@ -467,7 +469,7 @@
     }
 
     await NameList.load();
-    History.load();
+    await History.load();
     Timer.loadConfig();
 
     // URL 参数优先于保存的配置：?duration=30 或 ?at=10:30 / ?at=2026-09-15T10:30

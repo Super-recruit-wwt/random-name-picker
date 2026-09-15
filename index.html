@@ -26,7 +26,10 @@
     <div id="name-display">准备好了吗</div>
     <div id="countdown"></div>
     <div id="hint">按 空格 开始</div>
-    <input id="note-input" maxlength="50" placeholder="备注（可选）：本次抽奖内容，如「课堂提问·第三章」">
+    <div id="note-wrap">
+      <span class="note-icon">✏️</span>
+      <input id="note-input" maxlength="50" placeholder="本次抽奖内容（可选备注），如「课堂提问·第三章」">
+    </div>
   </main>
 
   <!-- 分享弹窗（主持人） -->
@@ -62,6 +65,11 @@
         <input type="datetime-local" id="at-input">
       </label>
       <p class="tip">也支持 URL 参数：?duration=30 或 ?at=10:30 / ?at=2026-09-15T10:30</p>
+      <label class="radio-row">
+        历史同步口令
+        <input type="password" id="history-token" placeholder="服务器写入口令（可选）">
+      </label>
+      <p class="tip">设置后历史记录会同步保存到服务器 data/history.csv；不设置则仅保存在本机浏览器。</p>
       <div class="row">
         <button id="save-settings" class="primary">保存</button>
         <button id="close-settings">关闭</button>
