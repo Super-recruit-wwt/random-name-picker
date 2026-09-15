@@ -279,3 +279,92 @@ html, body {
   font-size: 13px;
   font-family: ui-monospace, Consolas, monospace;
 }
+
+/* ---------- 备注输入（仅主持人待机状态显示） ---------- */
+#note-input {
+  display: none;
+  width: min(420px, 80vw);
+  background: rgba(22, 27, 34, 0.8);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 15px;
+  text-align: center;
+  outline: none;
+}
+#note-input:focus { border-color: var(--accent); }
+#stage[data-state="idle"] #note-input { display: block; }
+
+/* ---------- 历史记录抽屉（复用名单抽屉布局） ---------- */
+#history-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(460px, 94vw);
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  gap: 14px;
+}
+#history-list {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.history-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.history-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.history-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-warm);
+}
+.history-time {
+  font-size: 12px;
+  color: #6e7681;
+  white-space: nowrap;
+}
+.history-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.history-note {
+  flex: 1;
+  background: transparent;
+  color: var(--fg);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 13px;
+  outline: none;
+}
+.history-note:focus { border-style: solid; border-color: var(--accent); }
+.history-del {
+  background: none;
+  border: none;
+  color: #f85149;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+}

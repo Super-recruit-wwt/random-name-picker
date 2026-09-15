@@ -11,6 +11,7 @@
   <div id="toolbar">
     <button id="btn-share" title="生成观众链接">分享</button>
     <button id="btn-names" title="管理名单">名单</button>
+    <button id="btn-history" title="历史抽奖记录">历史</button>
     <button id="btn-settings" title="计时设置">设置</button>
     <button id="btn-sound" title="音效开关">🔊</button>
     <button id="btn-fullscreen" title="全屏 (F)">全屏</button>
@@ -25,6 +26,7 @@
     <div id="name-display">准备好了吗</div>
     <div id="countdown"></div>
     <div id="hint">按 空格 开始</div>
+    <input id="note-input" maxlength="50" placeholder="备注（可选）：本次抽奖内容，如「课堂提问·第三章」">
   </main>
 
   <!-- 分享弹窗（主持人） -->
@@ -85,12 +87,26 @@
     <ul id="name-list"></ul>
   </div>
 
+  <!-- 历史记录抽屉 -->
+  <div id="history-drawer" class="hidden">
+    <div class="drawer-head">
+      <h2>历史记录（<span id="history-count">0</span> 条）</h2>
+      <div class="drawer-actions">
+        <button id="export-history">导出 csv</button>
+        <button id="clear-history">清空</button>
+        <button id="close-history">✕</button>
+      </div>
+    </div>
+    <ul id="history-list"></ul>
+  </div>
+
   <input type="file" id="file-input" accept=".txt,.csv" class="hidden">
 
   <script src="vendor/qrcode.min.js"></script>
   <script src="js/picker.js"></script>
   <script src="js/seeded.js"></script>
   <script src="js/share.js"></script>
+  <script src="js/history.js"></script>
   <script src="js/timer.js"></script>
   <script src="js/namelist.js"></script>
   <script src="js/roller.js"></script>

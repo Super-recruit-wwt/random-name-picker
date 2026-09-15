@@ -2,6 +2,7 @@
  * main.js — 主控状态机：IDLE → ROLLING → REVEAL
  * 快捷键：空格 = 开始；Esc = 重置；F = 全屏
  * 观看模式：URL 带 seed 参数时自动进入，名单取自链接 fragment，结果由种子确定
+ * 历史记录：主持人端每次揭晓自动记录（含可选备注），观看模式不产生记录
  */
 (() => {
   const stage = document.getElementById('stage');
@@ -9,8 +10,10 @@
   const hint = document.getElementById('hint');
   const statusLine = document.getElementById('status-line');
   const countdown = document.getElementById('countdown');
+  const noteInput = document.getElementById('note-input');
 
   let state = 'IDLE'; // IDLE | ROLLING | REVEAL
+  let pendingNote = ''; // 本次滚动开始时锁定的备注
 
   /* ---------- 观看模式 / 种子分享 ---------- */
 
@@ -146,6 +149,7 @@
     }
     const err = Timer.start();
     if (err) { alert(err); openSettings(); return; }
+    pendingNote = noteInput.value.trim(); // 锁定本次备注
     runRoller();
   }
 
@@ -183,6 +187,19 @@
     clearCountdown();
     setState('REVEAL');
     SoundFX.reveal();
+
+    // 仅主持人端记入历史
+    if (!isWatch) {
+      History.add({
+        name,
+        note: pendingNote,
+        mode: Timer.mode,
+        seed: activeSeed || '',
+        pool: rollNames.length,
+      });
+      pendingNote = '';
+      noteInput.value = '';
+    }
   }
 
   function reset() {
@@ -306,12 +323,25 @@
   }
 
   function exportFile() {
-    const blob = new Blob(['﻿' + NameList.exportCsv()], { type: 'text/csv;charset=utf-8' });
+    downloadCsv('names.csv', NameList.exportCsv());
+  }
+
+  /* ---------- 历史记录抽屉 ---------- */
+
+  const historyDrawer = document.getElementById('history-drawer');
+
+  function downloadCsv(filename, csvText) {
+    const blob = new Blob(['﻿' + csvText], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'names.csv';
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(a.href);
+  }
+
+  function exportHistory() {
+    if (History.count === 0) { alert('暂无历史记录'); return; }
+    downloadCsv('history.csv', History.exportCsv());
   }
 
   /* ---------- 事件绑定 ---------- */
@@ -341,6 +371,20 @@
       refreshStatus();
     });
 
+    document.getElementById('btn-history').addEventListener('click', () => {
+      History.render();
+      historyDrawer.classList.remove('hidden');
+    });
+    document.getElementById('close-history').addEventListener('click', () => historyDrawer.classList.add('hidden'));
+    document.getElementById('export-history').addEventListener('click', exportHistory);
+    document.getElementById('clear-history').addEventListener('click', () => {
+      if (History.count === 0) return;
+      if (confirm('确定清空全部 ' + History.count + ' 条历史记录？')) {
+        History.clear();
+        History.render();
+      }
+    });
+
     const soundBtn = document.getElementById('btn-sound');
     const syncSoundBtn = () => { soundBtn.textContent = SoundFX.isEnabled() ? '🔊' : '🔇'; };
     soundBtn.addEventListener('click', () => { SoundFX.toggle(); syncSoundBtn(); });
@@ -349,7 +393,21 @@
     document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
 
     document.addEventListener('keydown', e => {
-      // 输入框聚焦时不响应全局快捷键
+      // 备注框聚焦时：空格/回车 = 失焦并开始（其他键正常输入）
+      if (e.target === noteInput) {
+        if (state === 'IDLE' && !isWatch
+          && (e.code === 'Space' || e.key === 'Enter')
+          && drawer.classList.contains('hidden')
+          && settingsModal.classList.contains('hidden')
+          && shareModal.classList.contains('hidden')
+          && historyDrawer.classList.contains('hidden')) {
+          e.preventDefault();
+          noteInput.blur();
+          startRoll();
+        }
+        return;
+      }
+      // 其他输入框聚焦时不响应全局快捷键
       if (e.target.tagName === 'INPUT') return;
       if (e.code === 'Space') {
         e.preventDefault();
@@ -357,7 +415,8 @@
         if (state === 'IDLE'
           && drawer.classList.contains('hidden')
           && settingsModal.classList.contains('hidden')
-          && shareModal.classList.contains('hidden')) {
+          && shareModal.classList.contains('hidden')
+          && historyDrawer.classList.contains('hidden')) {
           startRoll();
         }
         // 滚动中 / 揭晓后按空格无效，防误触
@@ -366,6 +425,7 @@
         else if (isWatch) return; // 观众无重置权
         else if (!settingsModal.classList.contains('hidden')) closeSettings();
         else if (!drawer.classList.contains('hidden')) drawer.classList.add('hidden');
+        else if (!historyDrawer.classList.contains('hidden')) historyDrawer.classList.add('hidden');
         else reset();
       } else if (e.key === 'f' || e.key === 'F') {
         toggleFullscreen();
@@ -395,7 +455,7 @@
       statusLine.textContent = atLabel + watchNames.length + ' 人在池';
 
       document.getElementById('watch-badge').classList.remove('hidden');
-      for (const id of ['btn-share', 'btn-names', 'btn-settings']) {
+      for (const id of ['btn-share', 'btn-names', 'btn-settings', 'btn-history']) {
         document.getElementById(id).style.display = 'none';
       }
 
@@ -407,6 +467,7 @@
     }
 
     await NameList.load();
+    History.load();
     Timer.loadConfig();
 
     // URL 参数优先于保存的配置：?duration=30 或 ?at=10:30 / ?at=2026-09-15T10:30
