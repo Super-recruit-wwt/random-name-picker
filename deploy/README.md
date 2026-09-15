@@ -23,15 +23,15 @@
 
 ```bash
 ssh root@43.167.198.21
-git clone https://github.com/Super-recruit-wwt/random-name-picker.git /var/www/name-picker
-# 以后更新只需：cd /var/www/name-picker && git pull
+git clone https://github.com/Super-recruit-wwt/random-name-picker.git /opt/name-picker
+# 以后更新只需：cd /opt/name-picker && git pull
 ```
 
 
 方式二（本地直接上传，在 Windows Git Bash 里执行）：
 
 ```bash
-scp -r /f/thinking/002随机抽名字代码 root@43.167.198.21:/var/www/name-picker
+scp -r /f/thinking/002随机抽名字代码 root@43.167.198.21:/opt/name-picker
 ```
 
 ## 3. 安装并配置 Caddy（推荐）
@@ -43,7 +43,7 @@ apt update && apt install -y caddy
 # 编辑配置
 cat > /etc/caddy/Caddyfile <<'EOF'
 picker.taouuuuuu.tech {
-    root * /var/www/name-picker
+    root * /opt/name-picker
     file_server
     encode gzip
 }
@@ -73,5 +73,5 @@ certbot --nginx -d picker.taouuuuuu.tech   # 自动签证书并改配置
 改 `data/names.csv` 后在服务器上 `git pull`（方式一），或重新 `scp` 单个文件：
 
 ```bash
-scp /f/thinking/002随机抽名字代码/data/names.csv root@43.167.198.21:/var/www/name-picker/data/names.csv
+scp /f/thinking/002随机抽名字代码/data/names.csv root@43.167.198.21:/opt/name-picker/data/names.csv
 ```
