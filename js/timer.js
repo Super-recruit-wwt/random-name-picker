@@ -63,6 +63,16 @@ const Timer = (() => {
     return totalMs - (performance.now() - startPerf);
   }
 
+  /**
+   * 观看模式专用：向指定时刻开始计时。
+   * 与 start() 不同，时刻已过不报错，返回剩余毫秒（可能为负），由调用方决定补播逻辑。
+   */
+  function startAt(date) {
+    totalMs = date.getTime() - Date.now();
+    startPerf = performance.now();
+    return totalMs;
+  }
+
   function describe() {
     if (mode === 'at' && targetDate) {
       return '开奖时刻：' + targetDate.toLocaleString('zh-CN', { hour12: false });
@@ -93,7 +103,7 @@ const Timer = (() => {
   }
 
   return {
-    configure, start, remaining, describe, loadConfig,
+    configure, start, startAt, remaining, describe, loadConfig,
     get mode() { return mode; },
     get durationSec() { return durationSec; },
     get targetDate() { return targetDate; },

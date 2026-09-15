@@ -1,6 +1,7 @@
 /**
  * main.js — 主控状态机：IDLE → ROLLING → REVEAL
  * 快捷键：空格 = 开始；Esc = 重置；F = 全屏
+ * 观看模式：URL 带 seed 参数时自动进入，名单取自链接 fragment，结果由种子确定
  */
 (() => {
   const stage = document.getElementById('stage');
@@ -10,6 +11,15 @@
   const countdown = document.getElementById('countdown');
 
   let state = 'IDLE'; // IDLE | ROLLING | REVEAL
+
+  /* ---------- 观看模式 / 种子分享 ---------- */
+
+  const params = new URLSearchParams(location.search);
+  const watchSeed = params.get('seed');   // 非空 → 观看模式
+  const isWatch = !!watchSeed;
+  let watchNames = null;                  // 链接内嵌名单
+  let activeSeed = null;                  // 本次开奖使用的种子
+  let rollNames = null;                   // 本次滚动使用的名单
 
   /* ---------- 倒计时显示 ---------- */
 
@@ -67,6 +77,7 @@
         [523, 659, 784, 1047].forEach((f, i) =>
           setTimeout(() => blip(f, 0.3, 'triangle', 0.07), i * 130));
       },
+      unlock() { ensure(); }, // 浏览器自动播放策略：首次用户交互时调用
       toggle() {
         enabled = !enabled;
         localStorage.setItem('picker-sound', enabled ? 'on' : 'off');
@@ -85,6 +96,11 @@
   }
 
   function updateHint() {
+    if (isWatch) {
+      if (state === 'ROLLING') hint.textContent = '滚动中…';
+      else if (state === 'REVEAL') hint.textContent = '🎉 结果已揭晓';
+      return;
+    }
     if (state === 'IDLE') hint.textContent = '按 空格 开始';
     else if (state === 'ROLLING') hint.textContent = '滚动中…';
     else hint.textContent = '🎉 恭喜！按 Esc 重置后可再次抽取';
@@ -94,19 +110,13 @@
     statusLine.textContent = Timer.describe() + '　·　' + NameList.count + ' 人在池';
   }
 
-  /* ---------- 核心流程 ---------- */
+  /* ---------- 滚动（主持人 / 观看共用） ---------- */
 
-  function startRoll() {
-    if (NameList.count === 0) {
-      alert('名单为空，请先点击右上角「名单」添加名字');
-      return;
-    }
-    const err = Timer.start();
-    if (err) { alert(err); openSettings(); return; }
+  function runRoller() {
     nameDisplay.classList.remove('reveal');
     setState('ROLLING');
     Roller.run(
-      NameList.names,
+      rollNames,
       (display, remaining) => {
         nameDisplay.textContent = display;
         renderCountdown(remaining);
@@ -117,9 +127,57 @@
     );
   }
 
+  /* ---------- 核心流程（主持人） ---------- */
+
+  function startRoll() {
+    // 若已生成分享链接且处于指定时刻模式：
+    // 用链接里的名单快照与种子开奖，保证主持人结果与观众链接一致
+    const shared = Share.get();
+    if (shared && Timer.mode === 'at') {
+      rollNames = shared.names;
+      activeSeed = shared.seed;
+    } else {
+      rollNames = NameList.names;
+      activeSeed = null;
+    }
+    if (!rollNames || rollNames.length === 0) {
+      alert('名单为空，请先点击右上角「名单」添加名字');
+      return;
+    }
+    const err = Timer.start();
+    if (err) { alert(err); openSettings(); return; }
+    runRoller();
+  }
+
+  /* ---------- 观看模式 ---------- */
+
+  function startWatch() {
+    rollNames = watchNames;
+    activeSeed = watchSeed;
+    const atParam = params.get('at');
+    const target = atParam ? new Date(atParam) : null;
+
+    if (target && !isNaN(target.getTime())) {
+      const ms = Timer.startAt(target); // 时刻已过返回负值，不报错
+      if (ms <= 0) {
+        // 迟到观众：补播 3 秒滚动再揭晓
+        Timer.configure('duration', 3);
+        Timer.start();
+      }
+    } else {
+      Timer.configure('duration', 3);
+      Timer.start();
+    }
+    runRoller();
+  }
+
+  /* ---------- 揭晓 ---------- */
+
   function onReveal() {
-    // 方案 B：停止这一瞬间才执行真正的抽取
-    const { name } = Picker.draw(NameList.names);
+    // 有种子 → 确定性抽取（与所有观众一致）；否则停止瞬间 crypto 级随机抽取
+    const { name } = activeSeed
+      ? Seeded.draw(activeSeed, rollNames)
+      : Picker.draw(rollNames || NameList.names);
     nameDisplay.textContent = name;
     nameDisplay.classList.add('reveal');
     clearCountdown();
@@ -170,6 +228,58 @@
     closeSettings();
   }
 
+  /* ---------- 分享弹窗（主持人） ---------- */
+
+  const shareModal = document.getElementById('share-modal');
+  const shareUrlInput = document.getElementById('share-url');
+  const shareSeedLabel = document.getElementById('share-seed');
+
+  function openShare() {
+    if (Timer.mode !== 'at' || !Timer.targetDate) {
+      alert('请先在「设置」里选择「指定时刻」模式并设定开奖时刻，再生成观众链接');
+      openSettings();
+      return;
+    }
+    if (Timer.targetDate.getTime() <= Date.now()) {
+      alert('开奖时刻已过，请先在「设置」里更新时刻');
+      openSettings();
+      return;
+    }
+    if (NameList.count === 0) {
+      alert('名单为空，请先添加名字');
+      return;
+    }
+    const shared = {
+      seed: Seeded.newSeed(),
+      at: Timer.targetDate.toISOString(),
+      names: NameList.names.slice(),
+    };
+    Share.set(shared);
+    const url = Share.buildUrl(shared.seed, Timer.targetDate, shared.names);
+    shareUrlInput.value = url;
+    shareSeedLabel.textContent = 'seed: ' + shared.seed;
+    Share.renderQr(document.getElementById('qr-box'), url);
+    shareModal.classList.remove('hidden');
+  }
+
+  function closeShare() {
+    shareModal.classList.add('hidden');
+  }
+
+  function copyShareUrl() {
+    shareUrlInput.select();
+    const done = ok => {
+      const btn = document.getElementById('copy-url');
+      btn.textContent = ok ? '已复制 ✓' : '复制失败';
+      setTimeout(() => { btn.textContent = '复制链接'; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareUrlInput.value).then(() => done(true), () => done(false));
+    } else {
+      try { done(document.execCommand('copy')); } catch { done(false); }
+    }
+  }
+
   /* ---------- 名单抽屉 ---------- */
 
   const drawer = document.getElementById('names-drawer');
@@ -211,6 +321,10 @@
     document.getElementById('save-settings').addEventListener('click', saveSettings);
     document.getElementById('close-settings').addEventListener('click', closeSettings);
 
+    document.getElementById('btn-share').addEventListener('click', openShare);
+    document.getElementById('copy-url').addEventListener('click', copyShareUrl);
+    document.getElementById('close-share').addEventListener('click', closeShare);
+
     document.getElementById('btn-names').addEventListener('click', () => {
       NameList.render();
       drawer.classList.remove('hidden');
@@ -239,12 +353,18 @@
       if (e.target.tagName === 'INPUT') return;
       if (e.code === 'Space') {
         e.preventDefault();
-        if (state === 'IDLE' && drawer.classList.contains('hidden') && settingsModal.classList.contains('hidden')) {
+        if (isWatch) return; // 观众无开始权
+        if (state === 'IDLE'
+          && drawer.classList.contains('hidden')
+          && settingsModal.classList.contains('hidden')
+          && shareModal.classList.contains('hidden')) {
           startRoll();
         }
         // 滚动中 / 揭晓后按空格无效，防误触
       } else if (e.key === 'Escape') {
-        if (!settingsModal.classList.contains('hidden')) closeSettings();
+        if (!shareModal.classList.contains('hidden')) closeShare();
+        else if (isWatch) return; // 观众无重置权
+        else if (!settingsModal.classList.contains('hidden')) closeSettings();
         else if (!drawer.classList.contains('hidden')) drawer.classList.add('hidden');
         else reset();
       } else if (e.key === 'f' || e.key === 'F') {
@@ -261,11 +381,35 @@
   /* ---------- 启动 ---------- */
 
   async function boot() {
+    if (isWatch) {
+      // 观看模式：名单以链接内嵌为准，忽略本机名单与配置
+      watchNames = Share.decodeNames(location.hash);
+      if (!watchNames || watchNames.length === 0) {
+        await NameList.load(); // 兼容无内嵌名单的旧链接
+        watchNames = NameList.names;
+      }
+      const atParam = params.get('at');
+      const atLabel = atParam && !isNaN(new Date(atParam).getTime())
+        ? '开奖时刻：' + new Date(atParam).toLocaleString('zh-CN', { hour12: false }) + '　·　'
+        : '';
+      statusLine.textContent = atLabel + watchNames.length + ' 人在池';
+
+      document.getElementById('watch-badge').classList.remove('hidden');
+      for (const id of ['btn-share', 'btn-names', 'btn-settings']) {
+        document.getElementById(id).style.display = 'none';
+      }
+
+      bindUI();
+      // 浏览器自动播放策略：首次点击页面时解锁音效
+      document.addEventListener('pointerdown', () => SoundFX.unlock(), { once: true });
+      startWatch(); // 观众打开即自动开始
+      return;
+    }
+
     await NameList.load();
     Timer.loadConfig();
 
     // URL 参数优先于保存的配置：?duration=30 或 ?at=10:30 / ?at=2026-09-15T10:30
-    const params = new URLSearchParams(location.search);
     if (params.has('duration')) Timer.configure('duration', params.get('duration'));
     if (params.has('at')) Timer.configure('at', params.get('at'));
 

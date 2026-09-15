@@ -9,11 +9,15 @@
 <body>
   <!-- 顶部工具栏 -->
   <div id="toolbar">
+    <button id="btn-share" title="生成观众链接">分享</button>
     <button id="btn-names" title="管理名单">名单</button>
     <button id="btn-settings" title="计时设置">设置</button>
     <button id="btn-sound" title="音效开关">🔊</button>
     <button id="btn-fullscreen" title="全屏 (F)">全屏</button>
   </div>
+
+  <!-- 观看模式标识 -->
+  <div id="watch-badge" class="hidden">👀 观看模式</div>
 
   <!-- 主舞台 -->
   <main id="stage" data-state="idle">
@@ -22,6 +26,24 @@
     <div id="countdown"></div>
     <div id="hint">按 空格 开始</div>
   </main>
+
+  <!-- 分享弹窗（主持人） -->
+  <div id="share-modal" class="overlay hidden">
+    <div class="panel">
+      <h2>分享给观众</h2>
+      <p class="tip">观众打开链接后将自动观看滚动过程；开奖后进入的观众会看到 3 秒滚动补播，最终结果与你的完全一致。</p>
+      <div id="qr-box"></div>
+      <input id="share-url" readonly>
+      <div class="row" style="justify-content: space-between;">
+        <span id="share-seed" class="tip"></span>
+        <button id="copy-url" class="primary">复制链接</button>
+      </div>
+      <p class="tip">⚠️ 链接发出后请不要再改名单——你本地下次开奖将沿用链接里的名单快照，保证结果一致。</p>
+      <div class="row">
+        <button id="close-share">关闭</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 设置弹窗 -->
   <div id="settings-modal" class="overlay hidden">
@@ -65,7 +87,10 @@
 
   <input type="file" id="file-input" accept=".txt,.csv" class="hidden">
 
+  <script src="vendor/qrcode.min.js"></script>
   <script src="js/picker.js"></script>
+  <script src="js/seeded.js"></script>
+  <script src="js/share.js"></script>
   <script src="js/timer.js"></script>
   <script src="js/namelist.js"></script>
   <script src="js/roller.js"></script>

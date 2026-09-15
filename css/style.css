@@ -240,3 +240,42 @@ html, body {
   cursor: pointer;
   padding: 2px 6px;
 }
+
+/* ---------- 观看模式 ---------- */
+#watch-badge {
+  position: fixed;
+  top: 14px;
+  left: 16px;
+  z-index: 30;
+  background: rgba(88, 166, 255, 0.12);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+}
+
+/* ---------- 分享弹窗 ---------- */
+#qr-box {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0;
+}
+#qr-box img {
+  width: 200px;
+  height: 200px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px;
+}
+#share-url {
+  width: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: ui-monospace, Consolas, monospace;
+}
