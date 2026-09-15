@@ -23,9 +23,10 @@
 
 ```bash
 ssh root@43.167.198.21
-git clone https://github.com/你的用户名/random-name-picker.git /var/www/name-picker
+git clone https://github.com/Super-recruit-wwt/random-name-picker.git /var/www/name-picker
 # 以后更新只需：cd /var/www/name-picker && git pull
 ```
+
 
 方式二（本地直接上传，在 Windows Git Bash 里执行）：
 
