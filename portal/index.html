@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>taouuuuuu.tech · 项目导航</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+    header { text-align: center; margin-bottom: 56px; }
+    header h1 {
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+    header h1 span { color: #58a6ff; }
+    header p { margin-top: 12px; color: #8b949e; font-size: 16px; }
+    .cards {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 900px;
+    }
+    a.card {
+      display: block;
+      width: min(400px, 90vw);
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 18px;
+      padding: 36px 32px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    a.card:hover {
+      transform: translateY(-6px);
+      border-color: var(--accent, #58a6ff);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+    .card .emoji { font-size: 44px; }
+    .card h2 { margin: 18px 0 10px; font-size: 24px; }
+    .card p { color: #8b949e; font-size: 15px; line-height: 1.7; }
+    .card .url {
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--accent, #58a6ff);
+      font-family: ui-monospace, Consolas, monospace;
+    }
+    a.card.love { --accent: #e8836d; }
+    a.card.picker { --accent: #f7b731; }
+    footer { margin-top: 64px; color: #484f58; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>taouuuuuu<span>.tech</span></h1>
+    <p>选择一个项目进入</p>
+  </header>
+
+  <div class="cards">
+    <a class="card love" href="https://love.taouuuuuu.tech/">
+      <div class="emoji">🕊️</div>
+      <h2>Love and Peace</h2>
+      <p>温润如玉的 AI 情感陪伴聊天平台，一个安静、温柔的虚拟陪伴空间。</p>
+      <div class="url">love.taouuuuuu.tech →</div>
+    </a>
+
+    <a class="card picker" href="https://picker.taouuuuuu.tech/">
+      <div class="emoji">🎰</div>
+      <h2>随机抽名字</h2>
+      <p>老虎机式现场抽奖工具：名单滚动、减速定格、倒计时，支持指定时刻开奖。</p>
+      <div class="url">picker.taouuuuuu.tech →</div>
+    </a>
+  </div>
+
+  <footer>© 2026 taouuuuuu.tech</footer>
+</body>
+</html>
