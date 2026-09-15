@@ -1,0 +1,228 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0d1117;
+  --fg: #e6edf3;
+  --accent: #58a6ff;
+  --accent-warm: #f7b731;
+  --panel: #161b22;
+  --border: #30363d;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  overflow: hidden;
+}
+
+.hidden { display: none !important; }
+
+/* ---------- 工具栏 ---------- */
+#toolbar {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 30;
+  opacity: 0.35;
+  transition: opacity 0.2s;
+}
+#toolbar:hover { opacity: 1; }
+#toolbar button {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+#toolbar button:hover { border-color: var(--accent); }
+
+/* ---------- 主舞台 ---------- */
+#stage {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4vh;
+  user-select: none;
+}
+
+#status-line {
+  font-size: clamp(16px, 2.2vw, 28px);
+  color: #8b949e;
+  letter-spacing: 0.1em;
+}
+
+#name-display {
+  font-size: clamp(64px, 22vh, 260px);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  max-width: 94vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#hint {
+  font-size: clamp(14px, 1.8vw, 22px);
+  color: #6e7681;
+}
+
+/* 揭晓状态 */
+#stage[data-state="reveal"] #name-display {
+  color: var(--accent-warm);
+  animation: reveal-pop 0.7s cubic-bezier(0.2, 1.6, 0.4, 1);
+  text-shadow: 0 0 40px rgba(247, 183, 49, 0.55), 0 0 120px rgba(247, 183, 49, 0.3);
+}
+#stage[data-state="reveal"] #status-line { color: var(--accent-warm); }
+
+@keyframes reveal-pop {
+  0%   { transform: scale(0.3); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* 滚动状态名字轻微抖动，增强"机器在转"的感觉 */
+#stage[data-state="rolling"] #name-display {
+  color: var(--fg);
+  animation: roll-jitter 0.12s linear infinite;
+}
+@keyframes roll-jitter {
+  0%   { transform: translateY(0); }
+  50%  { transform: translateY(-2px); }
+  100% { transform: translateY(0); }
+}
+
+/* ---------- 弹窗 / 抽屉 ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 32px;
+  width: min(480px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.panel h2 { font-size: 20px; }
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.radio-row input[type="number"], .radio-row input[type="datetime-local"] {
+  flex: 1;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 15px;
+}
+.tip { font-size: 13px; color: #6e7681; }
+.row { display: flex; gap: 12px; justify-content: flex-end; }
+.panel button {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.panel button.primary { background: var(--accent); border-color: var(--accent); color: #0d1117; font-weight: 600; }
+
+#names-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 92vw);
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  gap: 14px;
+}
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.drawer-head h2 { font-size: 18px; }
+.drawer-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.drawer-actions button {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.drawer-add { display: flex; gap: 8px; }
+.drawer-add input {
+  flex: 1;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 15px;
+}
+.drawer-add button {
+  background: var(--accent);
+  color: #0d1117;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+#name-list {
+  flex: 1;
+  overflow-y: auto;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+#name-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 15px;
+}
+#name-list li button {
+  background: none;
+  border: none;
+  color: #f85149;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 6px;
+}

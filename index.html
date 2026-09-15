@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>随机抽名字</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 顶部工具栏 -->
+  <div id="toolbar">
+    <button id="btn-names" title="管理名单">名单</button>
+    <button id="btn-settings" title="计时设置">设置</button>
+    <button id="btn-sound" title="音效开关">🔊</button>
+    <button id="btn-fullscreen" title="全屏 (F)">全屏</button>
+  </div>
+
+  <!-- 主舞台 -->
+  <main id="stage" data-state="idle">
+    <div id="status-line"></div>
+    <div id="name-display">准备好了吗</div>
+    <div id="hint">按 空格 开始</div>
+  </main>
+
+  <!-- 设置弹窗 -->
+  <div id="settings-modal" class="overlay hidden">
+    <div class="panel">
+      <h2>计时设置</h2>
+      <label class="radio-row">
+        <input type="radio" name="mode" value="duration">
+        滚动时长（秒）
+        <input type="number" id="duration-input" min="5" max="600" step="1" value="30">
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="mode" value="at">
+        指定时刻
+        <input type="datetime-local" id="at-input">
+      </label>
+      <p class="tip">也支持 URL 参数：?duration=30 或 ?at=10:30 / ?at=2026-09-15T10:30</p>
+      <div class="row">
+        <button id="save-settings" class="primary">保存</button>
+        <button id="close-settings">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 名单抽屉 -->
+  <div id="names-drawer" class="hidden">
+    <div class="drawer-head">
+      <h2>名单（<span id="name-count">0</span> 人）</h2>
+      <div class="drawer-actions">
+        <button id="import-btn">导入 txt/csv</button>
+        <button id="export-btn">导出 txt</button>
+        <button id="reset-names">恢复默认</button>
+        <button id="close-names">✕</button>
+      </div>
+    </div>
+    <div class="drawer-add">
+      <input id="new-name" placeholder="输入名字，回车添加；支持粘贴多行批量添加">
+      <button id="add-name">添加</button>
+    </div>
+    <ul id="name-list"></ul>
+  </div>
+
+  <input type="file" id="file-input" accept=".txt,.csv" class="hidden">
+
+  <script src="js/picker.js"></script>
+  <script src="js/timer.js"></script>
+  <script src="js/namelist.js"></script>
+  <script src="js/roller.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
