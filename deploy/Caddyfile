@@ -1,0 +1,7 @@
+# Caddy 配置示例：把域名改成你的实际域名（或子域）
+# Caddy 会自动申请并续期 Let's Encrypt HTTPS 证书
+picker.taouuuuuu.tech {
+    root * /var/www/name-picker
+    file_server
+    encode gzip
+}

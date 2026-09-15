@@ -196,10 +196,10 @@
   }
 
   function exportFile() {
-    const blob = new Blob([NameList.exportText()], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob(['﻿' + NameList.exportCsv()], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'names.txt';
+    a.download = 'names.csv';
     a.click();
     URL.revokeObjectURL(a.href);
   }
