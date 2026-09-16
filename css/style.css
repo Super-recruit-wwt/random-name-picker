@@ -408,3 +408,67 @@ html, body {
   color: var(--accent);
   font-weight: 600;
 }
+
+/* ---------- 待开奖提示条（待机页） ---------- */
+#pending-bar {
+  align-self: center;
+  background: rgba(88, 166, 255, 0.10);
+  border: 1px solid rgba(88, 166, 255, 0.35);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 6px 18px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  animation: note-fade-in 0.4s ease;
+}
+#pending-bar:hover {
+  border-color: var(--accent);
+  background: rgba(88, 166, 255, 0.18);
+}
+
+/* ---------- 历史按钮角标 ---------- */
+#history-badge {
+  display: inline-block;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  margin-left: 5px;
+  border-radius: 999px;
+  background: var(--accent-warm);
+  color: #0d1117;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 4px;
+  vertical-align: 2px;
+}
+
+/* ---------- 待开奖条目操作按钮 ---------- */
+.history-act {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.history-act:hover { border-color: var(--accent); }
+.history-act.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0d1117;
+  font-weight: 600;
+}
+
+/* ---------- 指定时刻解析预览 ---------- */
+#at-preview.ok { color: #3fb950; }
+#at-preview.err { color: #f85149; }
+
+/* 滚动/揭晓时隐藏待开奖提示条，避免干扰现场画面 */
+#stage[data-state="rolling"] #pending-bar,
+#stage[data-state="reveal"] #pending-bar {
+  display: none;
+}

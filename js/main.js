@@ -2,7 +2,7 @@
  * main.js — 主控状态机：IDLE → ROLLING → REVEAL
  * 快捷键：空格 = 开始；Esc = 重置；F = 全屏
  * 观看模式：URL 带 seed 参数时自动进入，名单取自链接 fragment，结果由种子确定
- * 历史记录：主持人端每次揭晓自动记录（含可选备注），观看模式不产生记录
+ * 历史记录：主持人端生成分享链接即建「待开奖」档，揭晓回填；观看模式不产生记录
  */
 (() => {
   const stage = document.getElementById('stage');
@@ -11,6 +11,8 @@
   const statusLine = document.getElementById('status-line');
   const countdown = document.getElementById('countdown');
   const noteInput = document.getElementById('note-input');
+  const pendingBar = document.getElementById('pending-bar');
+  const historyBadge = document.getElementById('history-badge');
 
   let state = 'IDLE'; // IDLE | ROLLING | REVEAL
   let pendingNote = ''; // 本次滚动开始时锁定的备注
@@ -113,6 +115,26 @@
     statusLine.textContent = Timer.describe() + '　·　' + NameList.count + ' 人在池';
   }
 
+  /* ---------- 待开奖提示（角标 + 待机页提示条） ---------- */
+
+  function updatePendingUI() {
+    if (isWatch) return;
+    const pending = History.pendingList();
+    if (pending.length > 0) {
+      historyBadge.textContent = pending.length;
+      historyBadge.classList.remove('hidden');
+      const r = pending[0];
+      const atLabel = r.at && !isNaN(new Date(r.at).getTime())
+        ? new Date(r.at).toLocaleString('zh-CN', { hour12: false }) : '未设定';
+      pendingBar.textContent = '⏳ 待开奖：预定 ' + atLabel
+        + (r.note ? ' · ' + r.note : '') + (r.pool ? ' · ' + r.pool + ' 人池' : '');
+      pendingBar.classList.remove('hidden');
+    } else {
+      historyBadge.classList.add('hidden');
+      pendingBar.classList.add('hidden');
+    }
+  }
+
   /* ---------- 滚动（主持人 / 观看共用） ---------- */
 
   function runRoller() {
@@ -133,10 +155,10 @@
   /* ---------- 核心流程（主持人） ---------- */
 
   function startRoll() {
-    // 若已生成分享链接且处于指定时刻模式：
+    // 若存在分享状态（新生成或「继续开奖」恢复的）：
     // 用链接里的名单快照与种子开奖，保证主持人结果与观众链接一致
     const shared = Share.get();
-    if (shared && Timer.mode === 'at') {
+    if (shared && shared.names && shared.names.length) {
       rollNames = shared.names;
       activeSeed = shared.seed;
     } else {
@@ -200,6 +222,7 @@
           pool: rollNames.length,
         });
       }
+      if (activeSeed) Share.clear(); // 种子已消费，避免下次误用
       pendingNote = '';
       noteInput.value = '';
     }
@@ -212,6 +235,7 @@
     clearCountdown();
     setState('IDLE');
     refreshStatus();
+    updatePendingUI();
   }
 
   /* ---------- 设置弹窗 ---------- */
@@ -219,18 +243,37 @@
   const settingsModal = document.getElementById('settings-modal');
   const durationInput = document.getElementById('duration-input');
   const atInput = document.getElementById('at-input');
+  const atPreview = document.getElementById('at-preview');
 
-  function toLocalInputValue(d) {
+  function fmtAtInput(d) {
     const pad = n => String(n).padStart(2, '0');
     return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
-      + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+      + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function updateAtPreview() {
+    const v = atInput.value.trim();
+    if (!v) {
+      atPreview.textContent = '';
+      atPreview.className = 'tip';
+      return;
+    }
+    const d = Timer.parseAt(v);
+    if (d) {
+      atPreview.textContent = '✓ 将于 ' + d.toLocaleString('zh-CN', { hour12: false }) + ' 开奖';
+      atPreview.className = 'tip ok';
+    } else {
+      atPreview.textContent = '✗ 格式无效（支持 10:30 或 2026-09-23 12:00）';
+      atPreview.className = 'tip err';
+    }
   }
 
   function openSettings() {
     const radios = settingsModal.querySelectorAll('input[name="mode"]');
     radios.forEach(r => { r.checked = r.value === Timer.mode; });
     durationInput.value = Timer.durationSec;
-    if (Timer.targetDate) atInput.value = toLocalInputValue(Timer.targetDate);
+    if (Timer.targetDate) atInput.value = fmtAtInput(Timer.targetDate);
+    updateAtPreview();
     document.getElementById('history-token').value = History.token();
     settingsModal.classList.remove('hidden');
   }
@@ -277,12 +320,13 @@
       names: NameList.names.slice(),
     };
     Share.set(shared);
-    // 预约式记录：生成链接即建档（待开奖），关页面也不丢
+    // 预约式记录：生成链接即建档（待开奖，含名单快照），关页面也不丢
     History.addPending({
       note: noteInput.value.trim(),
       at: shared.at,
       seed: shared.seed,
       pool: shared.names.length,
+      names: shared.names,
     });
     const url = Share.buildUrl(shared.seed, Timer.targetDate, shared.names);
     shareUrlInput.value = url;
@@ -307,6 +351,26 @@
     } else {
       try { done(document.execCommand('copy')); } catch { done(false); }
     }
+  }
+
+  /* ---------- 继续开奖（恢复待开奖） ---------- */
+
+  function resumePending(rec) {
+    Share.set({
+      seed: rec.seed,
+      at: rec.at,
+      names: (rec.names && rec.names.length) ? rec.names : NameList.names.slice(),
+    });
+    const atDate = new Date(rec.at);
+    if (!isNaN(atDate.getTime()) && atDate.getTime() > Date.now()) {
+      Timer.configure('at', rec.at);
+    } else {
+      // 预定时刻已过：改为 3 秒滚动，结果仍按原种子计算（与链接一致）
+      Timer.configure('duration', 3);
+    }
+    historyDrawer.classList.add('hidden');
+    reset();
+    hint.textContent = '已恢复待开奖，按 空格 开始（结果与链接一致）';
   }
 
   /* ---------- 名单抽屉 ---------- */
@@ -356,12 +420,18 @@
     downloadCsv('history.csv', History.exportCsv());
   }
 
+  function openHistory() {
+    History.render();
+    historyDrawer.classList.remove('hidden');
+  }
+
   /* ---------- 事件绑定 ---------- */
 
   function bindUI() {
     document.getElementById('btn-settings').addEventListener('click', openSettings);
     document.getElementById('save-settings').addEventListener('click', saveSettings);
     document.getElementById('close-settings').addEventListener('click', closeSettings);
+    atInput.addEventListener('input', updateAtPreview);
 
     document.getElementById('btn-share').addEventListener('click', openShare);
     document.getElementById('copy-url').addEventListener('click', copyShareUrl);
@@ -383,10 +453,8 @@
       refreshStatus();
     });
 
-    document.getElementById('btn-history').addEventListener('click', () => {
-      History.render();
-      historyDrawer.classList.remove('hidden');
-    });
+    document.getElementById('btn-history').addEventListener('click', openHistory);
+    pendingBar.addEventListener('click', openHistory);
     document.getElementById('close-history').addEventListener('click', () => historyDrawer.classList.add('hidden'));
     document.getElementById('export-history').addEventListener('click', exportHistory);
     document.getElementById('clear-history').addEventListener('click', () => {
@@ -479,15 +547,19 @@
     }
 
     await NameList.load();
-    await History.load();
     Timer.loadConfig();
 
     // URL 参数优先于保存的配置：?duration=30 或 ?at=10:30 / ?at=2026-09-15T10:30
     if (params.has('duration')) Timer.configure('duration', params.get('duration'));
     if (params.has('at')) Timer.configure('at', params.get('at'));
 
+    await History.load();
+    History.onResume = resumePending;
+    History.onChange = updatePendingUI;
+
     NameList.render();
     refreshStatus();
+    updatePendingUI();
     setState('IDLE');
     bindUI();
   }

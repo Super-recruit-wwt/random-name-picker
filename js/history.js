@@ -1,15 +1,15 @@
 /**
  * history.js — 抽奖历史记录
- * 存储优先级：服务器 data/history.csv（通过 /api/history 读写） > 本机 localStorage（离线回落）
- * 写操作需要口令（设置弹窗里配置，存本机 localStorage，随 X-History-Token 头发送）
+ * 存储：服务器 data/history.csv（/api/history 读写）与本机 localStorage 双向合并，
+ *       本机独有的记录会自动补传到服务器（需口令），不再被服务器覆盖丢失。
  *
  * 记录生命周期：
- *   生成分享链接 → 立即建档 status='pending'（⏳ 待开奖，含预定时刻 at）
+ *   生成分享链接 → 立即建档 status='pending'（⏳ 待开奖，含预定时刻 at 与名单快照 names）
  *   揭晓（同种子） → 回填 name / drawnAt，status='done'
  *   普通抽取（无种子） → 直接建 status='done' 记录
  *
- * CSV 列：time,name,note,mode,seed,pool,status,at,drawn_at
- * （旧版 6 列记录读取时自动视为 status='done'）
+ * CSV 列：time,name,note,mode,seed,pool,status,at,drawn_at,names
+ * （旧 6 列记录读取时自动视为 status='done'；names 以 | 分隔）
  */
 const History = (() => {
   const LS_KEY = 'picker-history';
@@ -19,6 +19,12 @@ const History = (() => {
   let records = [];
   let serverOk = false;
   let warned401 = false;
+
+  /** 由 main.js 注入：点击「继续开奖」时回调 */
+  let onResume = null;
+
+  /** 由 main.js 注入：任何记录变动后回调（刷新角标/提示条） */
+  let onChange = null;
 
   /* ---------- CSV 解析 / 生成 ---------- */
 
@@ -53,6 +59,7 @@ const History = (() => {
         mode: f[3] || '', seed: f[4] || '', pool: Number(f[5]) || 0,
         status: f[6] || 'done',   // 旧格式没有此列 → 已完成
         at: f[7] || '', drawnAt: f[8] || '',
+        names: f[9] ? f[9].split('|').filter(Boolean) : null,
       });
     }
     return out;
@@ -64,15 +71,17 @@ const History = (() => {
   }
 
   function fmtTime(t) {
+    if (!t) return '';
     const d = new Date(t);
-    return isNaN(d) ? String(t || '') : d.toLocaleString('zh-CN', { hour12: false });
+    return isNaN(d) ? String(t) : d.toLocaleString('zh-CN', { hour12: false });
   }
 
   function exportCsv() {
-    const header = 'time,name,note,mode,seed,pool,status,at,drawn_at';
+    const header = 'time,name,note,mode,seed,pool,status,at,drawn_at,names';
     const lines = records.map(r =>
       [fmtTime(r.time), r.name, r.note, r.mode, r.seed, r.pool,
-       r.status || 'done', fmtTime(r.at), fmtTime(r.drawnAt)].map(csvEscape).join(','));
+       r.status || 'done', fmtTime(r.at), fmtTime(r.drawnAt),
+       (r.names || []).join('|')].map(csvEscape).join(','));
     return header + '\n' + lines.join('\n') + '\n';
   }
 
@@ -83,6 +92,7 @@ const History = (() => {
 
   function persistLocal() {
     localStorage.setItem(LS_KEY, JSON.stringify(records));
+    if (onChange) { try { onChange(); } catch { /* 忽略回调异常 */ } }
   }
 
   function warnAuth() {
@@ -113,17 +123,42 @@ const History = (() => {
     } catch { /* 离线时静默 */ }
   }
 
+  /** 去重键：有种子的按种子（分享链接唯一），否则按 时间(到分钟)+中奖人 */
+  function keyOf(r) {
+    if (r.seed) return 'seed:' + r.seed;
+    return fmtTime(r.time).slice(0, 16) + '|' + r.name;
+  }
+
   async function load() {
+    let local = [];
+    try { local = JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch { /* 空 */ }
+
     try {
       const res = await fetch(API, { cache: 'no-store' });
       if (!res.ok) throw new Error(res.status);
-      records = parseCsv(await res.text());
+      const serverRecs = parseCsv(await res.text());
       serverOk = true;
-      persistLocal(); // 服务器为准，同时刷新本机缓存
+      // 合并：本机有而服务器没有的记录（如未设口令时的离线记录）补传上去
+      const serverKeys = new Set(serverRecs.map(keyOf));
+      const missing = local.filter(r => !serverKeys.has(keyOf(r)));
+      if (missing.length) {
+        records = [...missing, ...serverRecs];
+        persistLocal();
+        if (token()) {
+          await apiPutAll();
+          // 以服务器回读为准，统一格式
+          const res2 = await fetch(API, { cache: 'no-store' });
+          if (res2.ok) { records = parseCsv(await res2.text()); persistLocal(); }
+        } else {
+          records = [...missing, ...serverRecs];
+        }
+      } else {
+        records = serverRecs;
+        persistLocal();
+      }
     } catch {
       serverOk = false;
-      try { records = JSON.parse(localStorage.getItem(LS_KEY)) || []; }
-      catch { records = []; }
+      records = local;
     }
     return records;
   }
@@ -134,8 +169,8 @@ const History = (() => {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   }
 
-  /** 生成分享链接时建档：待开奖 */
-  function addPending({ note, at, seed, pool }) {
+  /** 生成分享链接时建档：待开奖（含名单快照，用于重建链接/继续开奖） */
+  function addPending({ note, at, seed, pool, names }) {
     const rec = {
       id: makeId(),
       time: new Date().toISOString(),
@@ -147,6 +182,7 @@ const History = (() => {
       status: 'pending',
       at: at || '',
       drawnAt: '',
+      names: names || null,
     };
     records.unshift(rec);
     persistLocal();
@@ -179,6 +215,7 @@ const History = (() => {
       status: 'done',
       at: '',
       drawnAt: new Date().toISOString(),
+      names: null,
     };
     records.unshift(rec);
     persistLocal();
@@ -205,6 +242,10 @@ const History = (() => {
     records = [];
     persistLocal();
     if (serverOk) apiPutAll();
+  }
+
+  function pendingList() {
+    return records.filter(r => r.status === 'pending');
   }
 
   /* ---------- 抽屉 UI ---------- */
@@ -238,15 +279,41 @@ const History = (() => {
       noteInput.value = r.note;
       noteInput.addEventListener('change', () => updateNote(r.id, noteInput.value.trim()));
 
+      const row = document.createElement('div');
+      row.className = 'history-row';
+      row.appendChild(noteInput);
+
+      // 待开奖条目：复制链接 + 继续开奖
+      if (pending) {
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'history-act';
+        copyBtn.textContent = '复制链接';
+        copyBtn.addEventListener('click', () => {
+          const names = r.names || NameList.names;
+          const url = Share.buildUrl(r.seed, new Date(r.at), names);
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(
+              () => { copyBtn.textContent = '已复制 ✓'; setTimeout(() => { copyBtn.textContent = '复制链接'; }, 1500); },
+              () => { copyBtn.textContent = '复制失败'; });
+          }
+        });
+        row.appendChild(copyBtn);
+
+        if (onResume) {
+          const resumeBtn = document.createElement('button');
+          resumeBtn.className = 'history-act primary';
+          resumeBtn.textContent = '继续开奖';
+          resumeBtn.addEventListener('click', () => onResume(r));
+          row.appendChild(resumeBtn);
+        }
+      }
+
       const del = document.createElement('button');
       del.className = 'history-del';
       del.textContent = '✕';
       del.title = '删除此条';
       del.addEventListener('click', () => { remove(r.id); render(); });
-
-      const row = document.createElement('div');
-      row.className = 'history-row';
-      row.append(noteInput, del);
+      row.appendChild(del);
 
       li.append(head, row);
       ul.appendChild(li);
@@ -255,7 +322,9 @@ const History = (() => {
 
   return {
     load, add, addPending, completeBySeed, updateNote, remove, clear,
-    render, exportCsv, setToken, token,
+    render, exportCsv, setToken, token, pendingList,
+    set onResume(fn) { onResume = fn; },
+    set onChange(fn) { onChange = fn; },
     get records() { return records; },
     get count() { return records.length; },
     get serverOk() { return serverOk; },

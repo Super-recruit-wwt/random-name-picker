@@ -14,16 +14,23 @@ const Timer = (() => {
   let startPerf = 0;
   let totalMs = 0;
 
-  /** 解析 at 值："10:30"（今天）或 "2026-09-15T10:30" 等 Date 可解析字符串 */
+  /**
+   * 解析 at 值，支持：
+   *   "10:30"              → 今天 10:30
+   *   "2026-09-15 10:30"   → 空格分隔的日期时刻
+   *   "2026-09-15T10:30"   → ISO 格式（链接同款）
+   */
   function parseAt(value) {
     if (typeof value !== 'string') return null;
-    const hm = value.match(/^(\d{1,2}):(\d{2})$/);
+    const v = value.trim();
+    const hm = v.match(/^(\d{1,2}):(\d{2})$/);
     if (hm) {
       const d = new Date();
       d.setHours(Number(hm[1]), Number(hm[2]), 0, 0);
       return d;
     }
-    const d = new Date(value);
+    const normalized = v.replace(/^(\d{4}-\d{2}-\d{2}) (\d{1,2}:\d{2}(?::\d{2})?)$/, '$1T$2');
+    const d = new Date(normalized);
     return isNaN(d.getTime()) ? null : d;
   }
 
@@ -103,7 +110,7 @@ const Timer = (() => {
   }
 
   return {
-    configure, start, startAt, remaining, describe, loadConfig,
+    configure, start, startAt, remaining, describe, loadConfig, parseAt,
     get mode() { return mode; },
     get durationSec() { return durationSec; },
     get targetDate() { return targetDate; },
