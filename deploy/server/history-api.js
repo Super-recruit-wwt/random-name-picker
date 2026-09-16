@@ -17,7 +17,7 @@ const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const CSV_FILE = path.join(DATA_DIR, 'history.csv');
 const TOKEN_FILE = path.join(DATA_DIR, '.api-token');
 const PORT = 3002;
-const HEADER = 'time,name,note,mode,seed,pool\n';
+const HEADER = 'time,name,note,mode,seed,pool,status,at,drawn_at\n';
 const MAX_BODY = 1024 * 1024; // 1MB
 
 let TOKEN = '';
@@ -32,9 +32,17 @@ function csvEscape(v) {
   return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
 }
 
+function fmtTime(t) {
+  if (!t) return '';
+  const d = new Date(t);
+  return isNaN(d) ? String(t) : d.toLocaleString('zh-CN', { hour12: false });
+}
+
+// CSV 列：time,name,note,mode,seed,pool,status,at,drawn_at
 function recordToLine(r) {
-  const t = new Date(r.time || Date.now()).toLocaleString('zh-CN', { hour12: false });
-  return [t, r.name, r.note, r.mode, r.seed, r.pool].map(csvEscape).join(',') + '\n';
+  return [fmtTime(r.time || Date.now()), r.name, r.note, r.mode, r.seed, r.pool,
+          r.status || 'done', fmtTime(r.at), fmtTime(r.drawnAt)]
+    .map(csvEscape).join(',') + '\n';
 }
 
 function readBody(req) {

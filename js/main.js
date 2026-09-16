@@ -188,15 +188,18 @@
     setState('REVEAL');
     SoundFX.reveal();
 
-    // 仅主持人端记入历史
+    // 仅主持人端记入历史：有种子的先尝试回填「待开奖」预约记录
     if (!isWatch) {
-      History.add({
-        name,
-        note: pendingNote,
-        mode: Timer.mode,
-        seed: activeSeed || '',
-        pool: rollNames.length,
-      });
+      const completed = activeSeed ? History.completeBySeed(activeSeed, name) : false;
+      if (!completed) {
+        History.add({
+          name,
+          note: pendingNote,
+          mode: Timer.mode,
+          seed: activeSeed || '',
+          pool: rollNames.length,
+        });
+      }
       pendingNote = '';
       noteInput.value = '';
     }
@@ -274,6 +277,13 @@
       names: NameList.names.slice(),
     };
     Share.set(shared);
+    // 预约式记录：生成链接即建档（待开奖），关页面也不丢
+    History.addPending({
+      note: noteInput.value.trim(),
+      at: shared.at,
+      seed: shared.seed,
+      pool: shared.names.length,
+    });
     const url = Share.buildUrl(shared.seed, Timer.targetDate, shared.names);
     shareUrlInput.value = url;
     shareSeedLabel.textContent = 'seed: ' + shared.seed;
